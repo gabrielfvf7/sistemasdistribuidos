@@ -12,7 +12,7 @@ def cliente():
 
     while True:  # roda em loop enquanto a mensagem de sair não for recebida
         messageToSend = input(
-            "Digite o nome do arquivo completo junto de sua extensão seguida da palavra que deseja buscar e dê enter\nExemplo: exemplo.txt maça\nOu digite 'sair' para terminar a sessão\n"
+            "Digite o nome do arquivo completo junto de sua extensão seguida da palavra que deseja buscar e dê enter\nExemplo: exemplo.txt maçã\nOu digite 'sair' para terminar a sessão\n"
         )  # pega o input digitado pelo usuário
         messageEncoded = messageToSend.encode(
             "utf-8"
@@ -26,7 +26,14 @@ def cliente():
             "utf-8"
         )  # decodifica a mensagem recebido para string
         print(response) # mostra a mensagem para o usuário
+        print('---------------------------------------------------------------')
+        repeat = input("Se deseja encerrar a conexão, digite 'sair' e dê enter, caso queira continuar apenas dê enter\n")
+        if repeat == "sair":
+            print("\nEncerrando conexão")
+            break
     sock.close()  # fecha a conexão
+    print('Conexão encerrada')
+    print('---------------------------------------------------------------')
 
 # chama a funçao principal da aplicação cliente
 cliente()

@@ -73,6 +73,8 @@ def servidor():
             novoSock.send(respostaEncoded)  # envia para o cliente a mensagem final
 
         # fecha o socket da conexao
+        print('Conexão encerrada')
+        print('---------------------------------------------------------------')
         novoSock.close()
 
     # fecha o socket principal
