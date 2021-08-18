@@ -5,7 +5,7 @@ import threading
 import json
 
 HOST = ""
-PORTA = 6000
+PORTA = 12000
 
 entradas = [sys.stdin]
 conexoes = {}
@@ -17,7 +17,7 @@ lock = threading.Lock()
 def iniciaServidor():
     sock = socket.socket()
     sock.bind((HOST, PORTA))
-    sock.listen(5)
+    sock.listen(20)
     sock.setblocking(False)
     entradas.append(sock)
     return sock
@@ -31,10 +31,16 @@ def liberarId(id):
     return idsDisponiveis.append(id)
 
 
+def notificaUsuarios(novoUser):
+    for conexao in conexoes.values():
+        enviaMensagem("Server", conexao["id"], f"Usuario {novoUser} se conectou")
+
+
 def aceitaConexao(sock):
     clientSock, address = sock.accept()
     lock.acquire()
     clientId = atribuirId()
+    notificaUsuarios(clientId)
     conexoes[clientSock] = {"address": address, "id": clientId}
     socketsClientes[clientId] = clientSock
     clientSock.send(str.encode(f"{clientId}"))
@@ -42,9 +48,7 @@ def aceitaConexao(sock):
     idsUsersAtivos = []
     for user in list(conexoes.values()):
         idsUsersAtivos.append(user["id"])
-    enviaMensagem(0, clientId, f"Users ativos: {idsUsersAtivos}")
-    # clientSock.send(str.encode(f"{idsUsersAtivos}"))
-
+    enviaMensagem("Server", clientId, f"Users ativos: {idsUsersAtivos}")
     print(f"{clientId} se conectou. End: {str(address)}")
 
     return clientSock, address
@@ -62,16 +66,15 @@ def enviaMensagem(idRemetente, idDestinatario, conteudo):
         remetente = socketsClientes[idRemetente]
         msgJson = json.dumps(
             {
-                "de": 0,
+                "de": "Server",
                 "para": idDestinatario,
                 "tipo": "msg",
                 "text": "Usuario nao encontrado",
             }
         )
-        print("enviou msg")
         remetente.send(str.encode(f"{len(msgJson)},{msgJson}"))
     else:
-        destinatario = socketsClientes[idDestinatario]
+        destinatario = socketsClientes[int(idDestinatario)]
         msgJson = json.dumps(
             {
                 "de": idRemetente,
@@ -85,12 +88,10 @@ def enviaMensagem(idRemetente, idDestinatario, conteudo):
 
 def recebeMensagem(clientSock, address):
     clienteId = conexoes[clientSock]["id"]
-    while True:  # roda em loop enquanto a mensagem de sair não for recebida
-        # depois de conectar-se, espera uma mensagem (chamada pode ser BLOQUEANTE))
-        msg = clientSock.recv(1024)  # argumento indica a qtde maxima de dados
-        if not msg:  # encerra conexão com o cliente caso não recebe mensagem
+    while True:
+        msg = clientSock.recv(1024)
+        if not msg:
             print("Encerrando conexão com o cliente {}\n".format(address))
-            # uso do lock para evitar problema de corrida
             lock.acquire()
             del conexoes[clientSock]
             del socketsClientes[clienteId]
@@ -98,9 +99,7 @@ def recebeMensagem(clientSock, address):
             lock.release()
             clientSock.close()
             return
-        msgDecodada = msg.decode(
-            "utf-8"
-        )  # faz a decodificação da mensagem de bytes para string
+        msgDecodada = msg.decode("utf-8")
         msgSplit = msgDecodada.split(",{")
         tamanhoMsg = msgSplit[0]
         msgJson = "{" + msgSplit[1]
@@ -118,7 +117,7 @@ def recebeMensagem(clientSock, address):
         elif tipoMsg == "cmd":
             if textoMsg == "listar":
                 idsUsers = listarUsuarios()
-                # mandar msg
+                enviaMensagem("Servidor", clienteId, str(idsUsers))
             elif textoMsg == "sair":
                 lock.acquire()
                 del conexoes[clientSock]
@@ -135,24 +134,20 @@ def main():
     while True:
         leitura, escrita, excecao = select(entradas, [], [])
         for pronto in leitura:
-            if pronto == socket:  # novo pedido de conexao
-                clientSocket, address = aceitaConexao(socket)  # aceita nova conexao
+            if pronto == socket:
+                clientSocket, address = aceitaConexao(socket)
                 print("Conexão estabelecida com:", address)
-
-                # cria nova thread para atender ao cliente conectado
                 cliente = threading.Thread(
                     target=recebeMensagem, args=(clientSocket, address)
                 )
                 cliente.start()
             elif pronto == sys.stdin:
                 msg = input()
-                if msg == "sair":  # solicitação de finalização a partir do servidor
-                    # apenas encerra quando não há clientes conectados
+                if msg == "sair":
                     for client in conexoes:
                         client.join()
                     socket.close()
                     sys.exit()
-                # comando para mostrar conexões do servidor
                 elif msg == "hist":
                     print(str(conexoes.values()))
 

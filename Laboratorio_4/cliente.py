@@ -8,9 +8,15 @@ entradas = [sys.stdin]
 idProprio = ""
 
 
+def mostraMenu():
+    print(
+        "/msg {id}: para enviar uma mensagem \n/sair: para sair \n/help: para mostrar o menu\n/listar: mostra users ativos"
+    )
+
+
 def cliente():
     HOST = "localhost"  # maquina onde esta o par passivo
-    PORTA = 6000  # porta que o par passivo esta escutando
+    PORTA = 12000  # porta que o par passivo esta escutando
 
     # cria socket
     sock = socket.socket()  # default: socket.AF_INET, socket.SOCK_STREAM
@@ -21,6 +27,7 @@ def cliente():
     response = response.decode("utf-8")
     idProprio = response
     entradas.append(sock)
+    mostraMenu()
 
     while True:  # roda em loop enquanto a mensagem de sair não for recebida
         leitura, escrita, excecao = select(entradas, [], [])
@@ -29,7 +36,7 @@ def cliente():
                 messageToSend = input()
                 if "/msg" in messageToSend:
                     msgSplit = messageToSend.split(" ")
-                    conteudo = input("Digite sua mensagem")
+                    conteudo = input("Digite sua mensagem:\n")
                     msgJson = json.dumps(
                         {
                             "de": idProprio,
@@ -39,27 +46,34 @@ def cliente():
                         }
                     )
                     sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
+                if "/sair" == messageToSend:
+                    sock.close()
+                    sys.exit()
+                if "/help" == messageToSend:
+                    mostraMenu()
+                if "/listar" == messageToSend:
+                    msgJson = json.dumps(
+                        {
+                            "de": idProprio,
+                            "para": 0,
+                            "tipo": "cmd",
+                            "texto": "listar",
+                        }
+                    )
+                    sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
             elif pronto == sock:
                 response = sock.recv(1024)  # recebe a resposta do servidor
                 response = response.decode("utf-8")
-                print(response)
+                msgSplit = response.split(",{")
+                tamanhoMsg = msgSplit[0]
+                msgJson = "{" + msgSplit[1]
 
-        # envia a mensagem para o servidor
-        # if messageToSend == "sair":  # se a mensagem for sair, encerra o loop
-        #     print("Encerrando conexão")
-        #     break
-        # decodifica a mensagem recebido para string
-        # print(response)  # mostra a mensagem para o usuário
-        # print("---------------------------------------------------------------")
-        # repeat = input(
-        #     "Se deseja encerrar a conexão, digite 'sair' e dê enter, caso queira continuar apenas dê enter\n"
-        # )
-        # if repeat == "sair":
-        #     print("\nEncerrando conexão")
-        #     break
-    sock.close()  # fecha a conexão
-    print("Conexão encerrada")
-    print("---------------------------------------------------------------")
+                while int(tamanhoMsg) - len(msgJson) > 0:
+                    msgJson = msgJson + sock.recv(1024).decode("utf-8")
+                jsonTratado = json.loads(msgJson)
+                textoMsg = jsonTratado["text"]
+                fromMsg = jsonTratado["de"]
+                print(f"from {fromMsg}: {textoMsg}\n")
 
 
 # chama a funçao principal da aplicação cliente
