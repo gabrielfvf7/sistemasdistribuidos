@@ -31,16 +31,16 @@ def liberarId(id):
     return idsDisponiveis.append(id)
 
 
-def notificaUsuarios(novoUser):
+def notificaUsuarios(mensagem):
     for conexao in conexoes.values():
-        enviaMensagem("Server", conexao["id"], f"Usuario {novoUser} se conectou")
+        enviaMensagem("Server", conexao["id"], mensagem)
 
 
 def aceitaConexao(sock):
     clientSock, address = sock.accept()
     lock.acquire()
     clientId = atribuirId()
-    notificaUsuarios(clientId)
+    notificaUsuarios(f"Usuario {clientId} se conectou")
     conexoes[clientSock] = {"address": address, "id": clientId}
     socketsClientes[clientId] = clientSock
     clientSock.send(str.encode(f"{clientId}"))
@@ -49,7 +49,7 @@ def aceitaConexao(sock):
     for user in list(conexoes.values()):
         idsUsersAtivos.append(user["id"])
     enviaMensagem("Server", clientId, f"Users ativos: {idsUsersAtivos}")
-    print(f"{clientId} se conectou. End: {str(address)}")
+    print(f"Usuário de ID {clientId} se conectou. End: {str(address)}")
 
     return clientSock, address
 
@@ -98,6 +98,7 @@ def recebeMensagem(clientSock, address):
             liberarId(clienteId)
             lock.release()
             clientSock.close()
+            notificaUsuarios(f"Usuario {clienteId} se desconectou!")
             return
         msgDecodada = msg.decode("utf-8")
         msgSplit = msgDecodada.split(",{")
@@ -131,12 +132,12 @@ def recebeMensagem(clientSock, address):
 
 def main():
     socket = iniciaServidor()
+    print("-----Servidor iniciado-----\n")
     while True:
         leitura, escrita, excecao = select(entradas, [], [])
         for pronto in leitura:
             if pronto == socket:
                 clientSocket, address = aceitaConexao(socket)
-                print("Conexão estabelecida com:", address)
                 cliente = threading.Thread(
                     target=recebeMensagem, args=(clientSocket, address)
                 )
