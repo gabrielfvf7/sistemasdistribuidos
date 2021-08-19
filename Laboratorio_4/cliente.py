@@ -4,8 +4,8 @@ import sys
 from select import select
 
 entradas = [sys.stdin]
-
 idProprio = ""
+destinatarioAtual = ""
 
 
 def mostraMenu():
@@ -19,7 +19,7 @@ def mostraMenu():
 
 def cliente():
     HOST = "localhost"  # maquina onde esta o par passivo
-    PORTA = 12000  # porta que o par passivo esta escutando
+    PORTA = 13000  # porta que o par passivo esta escutando
 
     # cria socket
     sock = socket.socket()  # default: socket.AF_INET, socket.SOCK_STREAM
@@ -56,19 +56,29 @@ def cliente():
                 elif "/msg" in messageToSend:
                     msgSplit = messageToSend.split(" ")
                     print(f"Conversando com o user {msgSplit[1]}")
-                    conteudo = input("Digite sua mensagem abaixo:\n")
+                    destinatarioAtual = msgSplit[1]
+                    conteudo = input("Digite suas mensagens abaixo:\n")
 
                     msgJson = json.dumps(
                         {
                             "de": idProprio,
-                            "para": msgSplit[1],
+                            "para": destinatarioAtual,
                             "tipo": "msg",
                             "texto": conteudo,
                         }
                     )
                     sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
                 else:
-                    print("Comando não reconhecido!")
+                    msgJson = json.dumps(
+                        {
+                            "de": idProprio,
+                            "para": destinatarioAtual,
+                            "tipo": "msg",
+                            "texto": messageToSend,
+                        }
+                    )
+                    sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
+                    continue
 
             elif pronto == sock:
                 response = sock.recv(1024)  # recebe a resposta do servidor
@@ -82,7 +92,7 @@ def cliente():
                 jsonTratado = json.loads(msgJson)
                 textoMsg = jsonTratado["text"]
                 fromMsg = jsonTratado["de"]
-                print(f"from {fromMsg}: {textoMsg}\n")
+                print(f"from {fromMsg}: {textoMsg}")
 
 
 # chama a funçao principal da aplicação cliente
