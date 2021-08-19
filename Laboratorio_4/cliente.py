@@ -30,10 +30,11 @@ def cliente():
     response = response.decode("utf-8")
     idProprio = response
     entradas.append(sock)
+    print(f"Conectado ao bate papo! Seu id é {idProprio}")
     mostraMenu()
 
     while True:  # roda em loop enquanto a mensagem de sair não for recebida
-        leitura, escrita, excecao = select(entradas, [], [])
+        leitura, _, _ = select(entradas, [], [])
         for pronto in leitura:
             if pronto == sys.stdin:
                 messageToSend = input()
