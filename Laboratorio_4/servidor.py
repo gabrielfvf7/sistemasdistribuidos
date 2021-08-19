@@ -5,7 +5,7 @@ import threading
 import json
 
 HOST = ""
-PORTA = 12000
+PORTA = 13000
 
 entradas = [sys.stdin]
 conexoes = {}
@@ -62,7 +62,7 @@ def listarUsuarios():
 
 
 def enviaMensagem(idRemetente, idDestinatario, conteudo):
-    if idDestinatario in idsDisponiveis:
+    if int(idDestinatario) in idsDisponiveis:
         remetente = socketsClientes[idRemetente]
         msgJson = json.dumps(
             {
