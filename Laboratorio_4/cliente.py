@@ -9,9 +9,12 @@ idProprio = ""
 
 
 def mostraMenu():
-    print(
-        "/msg {id}: para enviar uma mensagem \n/sair: para sair \n/help: para mostrar o menu\n/listar: mostra users ativos"
-    )
+    print("\nComandos disponíveis:")
+    print("/msg {id}: Para enviar uma mensagem a outro usuário")
+    print("/sair: Para se deslogar do bate papo")
+    print("/listar: Requisita a lista de usuários conectados ao servidor")
+    print("/help: Para mostrar novamente o menu de comandos")
+    print("------------------------------------------------------\n")
 
 
 def cliente():
@@ -34,24 +37,12 @@ def cliente():
         for pronto in leitura:
             if pronto == sys.stdin:
                 messageToSend = input()
-                if "/msg" in messageToSend:
-                    msgSplit = messageToSend.split(" ")
-                    conteudo = input("Digite sua mensagem:\n")
-                    msgJson = json.dumps(
-                        {
-                            "de": idProprio,
-                            "para": msgSplit[1],
-                            "tipo": "msg",
-                            "texto": conteudo,
-                        }
-                    )
-                    sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
                 if "/sair" == messageToSend:
                     sock.close()
                     sys.exit()
-                if "/help" == messageToSend:
+                elif "/help" == messageToSend:
                     mostraMenu()
-                if "/listar" == messageToSend:
+                elif "/listar" == messageToSend:
                     msgJson = json.dumps(
                         {
                             "de": idProprio,
@@ -61,6 +52,23 @@ def cliente():
                         }
                     )
                     sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
+                elif "/msg" in messageToSend:
+                    msgSplit = messageToSend.split(" ")
+                    print(f"Conversando com o user {msgSplit[1]}")
+                    conteudo = input("Digite sua mensagem abaixo:\n")
+
+                    msgJson = json.dumps(
+                        {
+                            "de": idProprio,
+                            "para": msgSplit[1],
+                            "tipo": "msg",
+                            "texto": conteudo,
+                        }
+                    )
+                    sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
+                else:
+                    print("Comando não reconhecido!")
+
             elif pronto == sock:
                 response = sock.recv(1024)  # recebe a resposta do servidor
                 response = response.decode("utf-8")
