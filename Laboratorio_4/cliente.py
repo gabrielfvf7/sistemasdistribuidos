@@ -5,7 +5,6 @@ from select import select
 
 entradas = [sys.stdin]
 idProprio = ""
-destinatarioAtual = ""
 
 
 def mostraMenu():
@@ -20,6 +19,7 @@ def mostraMenu():
 def cliente():
     HOST = "localhost"  # maquina onde esta o par passivo
     PORTA = 13000  # porta que o par passivo esta escutando
+    destinatarioAtual = ""
 
     # cria socket
     sock = socket.socket()  # default: socket.AF_INET, socket.SOCK_STREAM
@@ -29,8 +29,8 @@ def cliente():
     response = sock.recv(1024)  # recebe a resposta do servidor
     response = response.decode("utf-8")
     idProprio = response
-    entradas.append(sock)
     print(f"Conectado ao bate papo! Seu id é {idProprio}")
+    entradas.append(sock)
     mostraMenu()
 
     while True:  # roda em loop enquanto a mensagem de sair não for recebida
@@ -68,7 +68,7 @@ def cliente():
                         }
                     )
                     sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
-                else:
+                elif destinatarioAtual:
                     msgJson = json.dumps(
                         {
                             "de": idProprio,
@@ -78,7 +78,8 @@ def cliente():
                         }
                     )
                     sock.send(str.encode(f"{len(msgJson)},{msgJson}"))
-                    continue
+                else:
+                    print("Comando não reconhecido!")
 
             elif pronto == sock:
                 response = sock.recv(1024)  # recebe a resposta do servidor
