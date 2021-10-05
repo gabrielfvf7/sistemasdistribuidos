@@ -24,7 +24,7 @@ class Echo(rpyc.Service):
     def exposed_inscreve(self, topico, myPrint, conn):
         if topico in lista_topicos:
             if conn in lista_topicos[topico]:
-                return 'Você já se inscreveu neste tópico'
+                return 'Você já se inscreveu neste tópico.'
             else:
                 lista_topicos[topico][conn] = myPrint
         else:
@@ -36,6 +36,14 @@ class Echo(rpyc.Service):
                 myPrint(mensagem)
             return '\n--Fim das mensagens--\n'
         return 'Inscrito com sucesso!\n'
+
+    def exposed_desinscrever(self, topico, conn):
+        if len(lista_topicos) > 0:
+            if conn in lista_topicos[topico]:
+                del lista_topicos[topico][conn]
+                return 'Desinscrição realizada com sucesso!'
+        else:
+            return 'Você não está inscrito neste tópico.'
     
     def envia_mensagem(self, msg, topico):
         if topico in lista_topicos:
@@ -52,7 +60,7 @@ class Echo(rpyc.Service):
                         historico_mensagens[topico].append(msg)
                 else:
                     historico_mensagens[topico] = [msg]
-                return '\nNão há clientes inscritos neste tópico, mas eles receberão a mensagem assim que se inscreverem'
+                return '\nNão há clientes inscritos neste tópico, mas eles receberão a mensagem assim que se inscreverem.'
         else:
             lista_topicos[topico] = {}
             historico_mensagens[topico] = [msg]

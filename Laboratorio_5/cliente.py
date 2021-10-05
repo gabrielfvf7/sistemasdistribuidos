@@ -5,13 +5,16 @@ SERVIDOR = 'localhost'
 PORTA = 10001
 
 entradas = [sys.stdin]
+
 def mostraMenu():
 	print("\nComandos disponíveis:")
 	print("/inscreve: Para se inscrever em um topico")
+	print('/desinscreve: Para desinscrever de um tópico')
 	print("/envia: Para enviar mensagem a um topico")
 	print("/sair: Para encerrar o programa")
 	print("/help: Para mostrar novamente o menu de comandos")
 	print("------------------------------------------------------\n")
+
 class cliente(rpyc.Service):
 	# executa quando uma conexao eh criada
 	def on_connect(self, conn):
@@ -43,6 +46,14 @@ def fazRequisicoes(conn):
 					msg = input('Digite o conteúdo do anúncio: ')
 					ret = conn.root.echo(msg, topico)
 					print('{}\n'.format(ret))
+				elif msg == '/desinscreve':
+					topico = input("Digite o topico para se desinscrever: ")
+					ret = conn.root.desinscrever(topico, conn)
+					print('{}\n'.format(ret))
+				else:
+					print("Este comando não existe, tente novamente.")
+					mostraMenu()
+
 
 def myPrint(message):
 	print(message)
