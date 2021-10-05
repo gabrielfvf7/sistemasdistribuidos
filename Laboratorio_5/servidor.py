@@ -1,173 +1,63 @@
-import socket
-from select import select
-import sys
-import threading
-import json
 import rpyc
-from rpyc.utils.server import ForkingServer
+from rpyc.utils.server import ThreadedServer 
+PORTA = 10001
 
-HOST = ""
-PORTA = 13000
+lista_topicos = {}
+historico_mensagens = {}
 
-entradas = [sys.stdin]
-conexoes = {}
-socketsClientes = {}
-idsDisponiveis = list(range(1, 20))
-lock = threading.Lock()
-
-class Anuncio(rpyc.Service):
+class Echo(rpyc.Service):
     def on_connect(self, conn):
-        print("Conexão iniciada", conn)
+        print("Conexao iniciada: {}".format(conn))
+    def on_disconnect(self, conn):           
+        print("Conexao finalizada: {}".format(conn))
 
-    def on_disconnect(self, conn):
-        print("Conexão finalizada", conn)
+    def exposed_desconectar(self, conn):
+        for topico in lista_topicos:
+            if (conn in lista_topicos[topico]):
+                del lista_topicos[topico][conn]
+        return
 
-    def envia_mensagem(self, msg):
-        print('Msg recebida')
-        return msg
-
+    def exposed_echo(self, msg, topico):
+        ret = self.envia_mensagem(msg, topico)
+        return ret
+        
+    def exposed_inscreve(self, topico, myPrint, conn):
+        if topico in lista_topicos:
+            if conn in lista_topicos[topico]:
+                return 'Você já se inscreveu neste tópico'
+            else:
+                lista_topicos[topico][conn] = myPrint
+        else:
+            lista_topicos[topico] = {conn: myPrint}
+        if topico in historico_mensagens:
+            myPrint('Inscrito com sucesso!\n')
+            myPrint('Este tópico já continha as seguintes mensagens:')
+            for mensagem in historico_mensagens[topico]:
+                myPrint(mensagem)
+            return '\n--Fim das mensagens--\n'
+        return 'Inscrito com sucesso!\n'
     
+    def envia_mensagem(self, msg, topico):
+        if topico in lista_topicos:
+            if len(lista_topicos[topico]) > 0:
+                for conn in lista_topicos[topico]:
+                    lista_topicos[topico][conn]('Nova mensagem no tópico {}:\n{}'.format(topico, msg))
+                    if topico in historico_mensagens:
+                        historico_mensagens[topico].append(msg)
+                    else:
+                        historico_mensagens[topico] = [msg]
+                return 'Envio feito com sucesso!'
+            else:
+                if topico in historico_mensagens:
+                        historico_mensagens[topico].append(msg)
+                else:
+                    historico_mensagens[topico] = [msg]
+                return '\nNão há clientes inscritos neste tópico, mas eles receberão a mensagem assim que se inscreverem'
+        else:
+            lista_topicos[topico] = {}
+            historico_mensagens[topico] = [msg]
+            return 'Este tópico não existia e foi criado.\nClientes que se inscreverem nele, receberão sua mensagem!'
+
 if __name__ == "__main__":
-    srv = ForkingServer(Anuncio, port = PORTA)
-    srv.start()
-
-# def iniciaServidor():
-#     sock = socket.socket()
-#     sock.bind((HOST, PORTA))
-#     sock.listen(20)
-#     sock.setblocking(False)
-#     entradas.append(sock)
-#     return sock
-
-
-def atribuirId():
-    return idsDisponiveis.pop(0)
-
-
-def liberarId(id):
-    return idsDisponiveis.append(id)
-
-
-def notificaUsuarios(mensagem):
-    for conexao in conexoes.values():
-        enviaMensagem("Server", conexao["id"], mensagem)
-
-
-# def aceitaConexao(sock):
-#     clientSock, address = sock.accept()
-#     lock.acquire()
-#     clientId = atribuirId()
-#     notificaUsuarios(f"Usuario {clientId} se conectou")
-#     conexoes[clientSock] = {"address": address, "id": clientId}
-#     socketsClientes[clientId] = clientSock
-#     clientSock.send(str.encode(f"{clientId}"))
-#     lock.release()
-#     idsUsersAtivos = []
-#     for user in list(conexoes.values()):
-#         idsUsersAtivos.append(user["id"])
-#     enviaMensagem("Server", clientId, f"Users ativos: {idsUsersAtivos}")
-#     print(f"Usuário de ID {clientId} se conectou. End: {str(address)}")
-
-#     return clientSock, address
-
-
-def listarUsuarios():
-    idsUsuariosAtivos = []
-    for user in list(conexoes.values()):
-        idsUsuariosAtivos.append(user["id"])
-    return idsUsuariosAtivos
-
-
-def enviaMensagem(idRemetente, idDestinatario, conteudo):
-    if int(idDestinatario) in idsDisponiveis:
-        remetente = socketsClientes[idRemetente]
-        msgJson = json.dumps(
-            {
-                "de": "Server",
-                "para": idDestinatario,
-                "tipo": "msg",
-                "text": "Usuario nao encontrado",
-            }
-        )
-        remetente.send(str.encode(f"{len(msgJson)},{msgJson}"))
-    else:
-        destinatario = socketsClientes[int(idDestinatario)]
-        msgJson = json.dumps(
-            {
-                "de": idRemetente,
-                "para": idDestinatario,
-                "tipo": "msg",
-                "text": conteudo,
-            }
-        )
-        destinatario.send(str.encode(f"{len(msgJson)},{msgJson}"))
-
-
-def recebeMensagem(clientSock, address):
-    clienteId = conexoes[clientSock]["id"]
-    while True:
-        msg = clientSock.recv(1024)
-        if not msg:
-            print("Encerrando conexão com o cliente {}\n".format(address))
-            lock.acquire()
-            del conexoes[clientSock]
-            del socketsClientes[clienteId]
-            liberarId(clienteId)
-            lock.release()
-            clientSock.close()
-            notificaUsuarios(f"Usuario {clienteId} se desconectou!")
-            return
-        msgDecodada = msg.decode("utf-8")
-        msgSplit = msgDecodada.split(",{")
-        tamanhoMsg = msgSplit[0]
-        msgJson = "{" + msgSplit[1]
-
-        while int(tamanhoMsg) - len(msgJson) > 0:
-            msgJson = msgJson + clientSock.recv(1024).decode("utf-8")
-
-        jsonTratado = json.loads(msgJson)
-        tipoMsg = jsonTratado["tipo"]
-        textoMsg = jsonTratado["texto"]
-        destinatarioMsg = jsonTratado["para"]
-
-        if tipoMsg == "msg":
-            enviaMensagem(clienteId, destinatarioMsg, textoMsg)
-        elif tipoMsg == "cmd":
-            if textoMsg == "listar":
-                idsUsers = listarUsuarios()
-                enviaMensagem("Servidor", clienteId, str(idsUsers))
-            elif textoMsg == "sair":
-                lock.acquire()
-                del conexoes[clientSock]
-                del socketsClientes[clienteId]
-                liberarId(clienteId)
-                lock.release()
-                clientSock.close()
-                print("Encerrando conexão com o cliente {}\n".format(address))
-                return
-
-
-# def main():
-#     socket = iniciaServidor()
-#     print("-----Servidor iniciado-----\n")
-#     while True:
-#         leitura, escrita, excecao = select(entradas, [], [])
-#         for pronto in leitura:
-#             if pronto == socket:
-#                 clientSocket, address = aceitaConexao(socket)
-#                 cliente = threading.Thread(
-#                     target=recebeMensagem, args=(clientSocket, address)
-#                 )
-#                 cliente.start()
-#             elif pronto == sys.stdin:
-#                 msg = input()
-#                 if msg == "sair":
-#                     for client in conexoes:
-#                         client.join()
-#                     socket.close()
-#                     sys.exit()
-#                 elif msg == "hist":
-#                     print(str(conexoes.values()))
-
-
-# main()
+	srv = ThreadedServer(Echo(), port = PORTA, protocol_config = {"allow_public_attrs" : True})
+	srv.start()
